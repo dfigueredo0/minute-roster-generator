@@ -15,6 +15,9 @@ advisors = ['Resident Advisor', 'Chapter Advisor', 'Asst. Chapter Advisor']
 
 emDash = u'\u2014'
 
+# The following code for handling floating images in a Word document was
+# initially reported by user Kill0geR over at the python-docx GitHub page:
+# https://github.com/python-openxml/python-docx/issues/159#issuecomment-1955319955
 class CT_Anchor(BaseOxmlElement):
     extent = OneAndOnlyOne('wp:extent')
     docPr = OneAndOnlyOne('wp:docPr')
