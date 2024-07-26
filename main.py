@@ -1,5 +1,7 @@
 import pandas as pd
 import os
+import math
+
 from docx.oxml import parse_xml, register_element_cls, OxmlElement
 from docx.oxml.ns import nsdecls, qn
 from docx.oxml.shape import CT_Picture
@@ -113,7 +115,7 @@ def set_font(run, font_name='Times New Roman', size=11, bold=False):
 def set_paragraph_indentation(paragraph, left_indent):
     paragraph.paragraph_format.left_indent = Pt(left_indent)
 
-def insertBHR(paragraph):
+def insertHR(paragraph, position='bottom'):
     p = paragraph._p  # p is the <w:p> XML element
     pPr = p.get_or_add_pPr()
     pBdr = OxmlElement('w:pBdr')
@@ -126,40 +128,184 @@ def insertBHR(paragraph):
         'w:outlineLvl', 'w:divId', 'w:cnfStyle', 'w:rPr', 'w:sectPr',
         'w:pPrChange'
     )
-    bottom = OxmlElement('w:bottom')
-    bottom.set(qn('w:val'), 'single')
-    bottom.set(qn('w:sz'), '6')
-    bottom.set(qn('w:space'), '1')
-    bottom.set(qn('w:color'), 'auto')
-    pBdr.append(bottom)
+    border = OxmlElement(f'w:{position}')
+    border.set(qn('w:val'), 'single')
+    border.set(qn('w:sz'), '6')
+    border.set(qn('w:space'), '1')
+    border.set(qn('w:color'), 'auto')
+    pBdr.append(border)
 
-def insertTHR(paragraph):
-    p = paragraph._p  # p is the <w:p> XML element
-    pPr = p.get_or_add_pPr()
-    pBdr = OxmlElement('w:pBdr')
-    pPr.insert_element_before(pBdr,
-        'w:shd', 'w:tabs', 'w:suppressAutoHyphens', 'w:kinsoku', 'w:wordWrap',
-        'w:overflowPunct', 'w:topLinePunct', 'w:autoSpaceDE', 'w:autoSpaceDN',
-        'w:bidi', 'w:adjustRightInd', 'w:snapToGrid', 'w:spacing', 'w:ind',
-        'w:contextualSpacing', 'w:mirrorIndents', 'w:suppressOverlap', 'w:jc',
-        'w:textDirection', 'w:textAlignment', 'w:textboxTightWrap',
-        'w:outlineLvl', 'w:divId', 'w:cnfStyle', 'w:rPr', 'w:sectPr',
-        'w:pPrChange'
-    )
-    top = OxmlElement('w:top')
-    top.set(qn('w:val'), 'single')
-    top.set(qn('w:sz'), '6')
-    top.set(qn('w:space'), '1')
-    top.set(qn('w:color'), 'auto')
-    pBdr.append(top)
+def get_positions(row, delimiter=','):
+    if pd.isna(row):
+        return []
+    return [pos.strip() for pos in row.split(delimiter)]
+
+def add_parliamentary_officers(paragraph, title, role, active_df):
+    names = []
+    for r in role.split(', '):
+        officer_data = active_df[active_df['Current Office'].apply(lambda x: r in get_positions(x))]
+        for _, row in officer_data.iterrows():
+            name = f'{row["First Name"]} {row["Last Name"]}'
+            if name not in names:
+                names.append(name)
+    names_text = ', '.join(names)
+    run = paragraph.add_run(f'{title}: {names_text}\n')
+    set_font(run)
+
+def add_header(document, header_text, font_name='Times New Roman', font_size=11, alignment=WD_ALIGN_PARAGRAPH.RIGHT):
+    section = document.sections[0]
+    section.different_first_page_header_footer = True
+
+    first_page_header = section.first_page_header
+    for paragraph in first_page_header.paragraphs:
+        p = paragraph._element
+        p.getparent().remove(p)
+    
+    if len(first_page_header.paragraphs) == 0:
+        first_page_header.add_paragraph()
+
+    first_page_header_paragraph = first_page_header.paragraphs[0]
+    first_page_header_run = first_page_header_paragraph.add_run()
+    first_page_header_paragraph.alignment = alignment
+    set_font(first_page_header_run, font_name, font_size)
+
+    header = section.header
+    header_paragraph = header.paragraphs[0]
+    header_run = header_paragraph.add_run(header_text)
+    header_paragraph.alignment = alignment
+    set_font(header_run, font_name, font_size)
 
 def create_chapter_minutes(docx_output_dir, active_df, advisor_df):
+    register_element_cls('wp:anchor', CT_Anchor)
     doc = Document()
 
-    set_document_font(document=doc, font_name='Calibri')
+    add_header(doc, 'Formal Meeting Minutes\nDate')
+
+    paragraph = doc.add_paragraph()
+    add_float_picture(paragraph, 'data/AEPKS_CREST.png', width=Inches(7), height=Inches(9), pos_x=Pt(-225), pos_y=Pt(80))
+
+    title_paragraph = doc.add_paragraph()
+    set_font(title_paragraph.add_run('Phi Kappa Sigma\n'), size=26, bold=True)
+    set_font(title_paragraph.add_run('Alpha Epsilon\n'), size=20, bold=True)
+    set_font(title_paragraph.add_run('Meeting Minutes'), size=14)
+    insertHR(title_paragraph)
+
+    meeting = doc.add_paragraph()
+    set_font(meeting.add_run('Formal Meeting\n'), size=12)
+    insertHR(meeting, position='top')
+    set_font(meeting.add_run('Date'))
+
+    parliamentary_officers = doc.add_paragraph()
+    set_font(parliamentary_officers.add_run('Parliamentary Officers\n'), size=14)
+    insertHR(parliamentary_officers, position='top')
+    roles = [('Chair', 'Alpha'), ('Secretary', 'Sigma'), ('Treasurer', 'Tau'), ('Chaplain', 'Beta'), ('Sergeants-at-arms', 'Theta One, Theta Two, Theta Three')]
+
+    for title, role in roles:
+        add_parliamentary_officers(parliamentary_officers, title, role, active_df)
+
+    insertHR(parliamentary_officers)
+
+    active_members = doc.add_paragraph()
+    set_font(active_members.add_run(f'Total active members: {len(active_df)}\n'))
+    set_font(active_members.add_run(f'Total voting members: {len(active_df)}\n'))
+    set_font(active_members.add_run('Total members in attendance: Attendance\n'))
+    set_font(active_members.add_run(f'Quorum minimum {int(len(active_df) // (3/2))}\n'))
+    set_font(active_members.add_run(f'Blackball minimum: {math.ceil(len(active_df) * 0.10)} \t(10%)\n'))
+    insertHR(active_members)
 
     doc.add_page_break()
 
+    call = doc.add_paragraph()
+    set_font(call.add_run('Call to Order - Time'), font_name='Helvetica Neue', bold=True)
+
+    roll = doc.add_paragraph()
+    set_font(roll.add_run('Roll -'), font_name='Helvetica Neue', bold=True)
+
+    reading = doc.add_paragraph()
+    set_font(reading.add_run('Reading of a section of the Constitution or Chapter By-Laws -'), font_name='Helvetica Neue', bold=True)
+
+    previous = doc.add_paragraph()
+    set_font(previous.add_run('Previous Meeting Minutes -'), font_name='Helvetica Neue', bold=True)
+
+    chapter_comms = doc.add_paragraph()
+    set_font(chapter_comms.add_run('Chapter Communications and Letters -'), font_name='Helvetica Neue', bold=True)
+
+    proposals = doc.add_paragraph()
+    set_font(proposals.add_run('Proposals and Election of New Members -'), font_name='Helvetica Neue', bold=True)
+    nms = {
+        'NM1': ['Pi:', 'Iota:', 'PF:', '+:', '-:', 'C:', 'Pass:'],
+        'NM2': ['Pi:', 'Iota:', 'PF:', '+:', '-:', 'C:', 'Pass:'],
+        'NM3': ['Pi:', 'Iota:', 'PF:', '+:', '-:', 'C:', 'Pass:']
+    }
+
+    for nm, sub_items in nms.items():
+        bullet_point = doc.add_paragraph(style='List Bullet')
+        set_font(bullet_point.add_run(nm), font_name='Helvetica Neue')
+        set_paragraph_indentation(bullet_point, 36)
+        
+        for sub_item in sub_items:
+            sub_bullet_point = doc.add_paragraph(style='List Bullet 2')
+            set_font(sub_bullet_point.add_run(sub_item), font_name='Helvetica Neue')
+            set_paragraph_indentation(sub_bullet_point, 72)
+
+    reports = doc.add_paragraph()
+    set_font(reports.add_run('Reports of Officers and Committees -'), font_name='Helvetica Neue', bold=True)
+    officer_committees = [
+        'Executive Committee', 'Finance Committee', 'Recuirment Committee', 
+        'Events Committee', 'Internal Operations Committee', 'Bylaws Committee', 
+        'Greek Council Liasion (Gamma)', 'Epsilon', 'Lambda', 'Asst. Tau', 'Phi', 
+        'Psi', 'Upsilon', 'Theta Three', 'Theta Two', 'Theta One', 'Chi', 'Tau',
+        'Sigma', 'Iota', 'Pi', 'Beta', 'Alpha'
+    ]
+
+    for oc in officer_committees:
+        bullet_point = doc.add_paragraph(style='List Bullet')
+        set_font(bullet_point.add_run(oc), font_name='Helvetica Neue')
+        set_paragraph_indentation(bullet_point, 36)
+
+    elections = doc.add_paragraph()
+    set_font(elections.add_run('Elections -'), font_name='Helvetica Neue', bold=True)
+
+    unfinished = doc.add_paragraph()
+    set_font(unfinished.add_run('Unfinished Business -'), font_name='Helvetica Neue', bold=True)
+
+    new_business = doc.add_paragraph()
+    set_font(new_business.add_run('New Business -'), font_name='Helvetica Neue', bold=True)
+
+    comments = doc.add_paragraph()
+    set_font(comments.add_run('Comments by the Chapter Advisor, Resident Advisor, and Guests -'), font_name='Helvetica Neue', bold=True)
+
+    corrections = doc.add_paragraph()
+    set_font(corrections.add_run('Correction of Minutes -'), font_name='Helvetica Neue', bold=True)
+
+    roll2 = doc.add_paragraph()
+    set_font(roll2.add_run('Second Roll -'), font_name='Helvetica Neue', bold=True)
+
+    closing = doc.add_paragraph()
+    set_font(closing.add_run('Closing Comments -'), font_name='Helvetica Neue', bold=True)
+    bullet_point = doc.add_paragraph(style='List Bullet')
+    set_font(bullet_point.add_run('Announcements'), font_name='Helvetica Neue')
+    set_paragraph_indentation(bullet_point, 36)
+    sub_bullet_point = doc.add_paragraph(style='List Bullet 2')
+    set_font(sub_bullet_point.add_run(''), font_name='Helvetica Neue')
+    set_paragraph_indentation(sub_bullet_point, 72)
+
+    bullet_point1 = doc.add_paragraph(style='List Bullet')
+    set_font(bullet_point1.add_run('Betterment'), font_name='Helvetica Neue')
+    set_paragraph_indentation(bullet_point1, 36)
+    sub_bullet_point1 = doc.add_paragraph(style='List Bullet 2')
+    set_font(sub_bullet_point1.add_run(''), font_name='Helvetica Neue')
+    set_paragraph_indentation(sub_bullet_point1, 72)
+
+    adjourn = doc.add_paragraph()
+    set_font(adjourn.add_run('Adjournment - Time'), font_name='Helvetica Neue', bold=True)
+
+    doc.add_page_break()
+
+    roster = doc.add_paragraph()
+    set_font(roster.add_run('Roster -'), font_name='Helvetica Neue', bold=True)
+
+    set_document_font(document=doc, font_name='Calibri')
     officers_table = doc.add_table(rows=1, cols=4)
     hdr_cells = officers_table.rows[0].cells
     hdr_cells[0].text = 'Officers'
@@ -178,7 +324,7 @@ def create_chapter_minutes(docx_output_dir, active_df, advisor_df):
 
     r_index = 0
     for officer in officers:
-        officer_data = active_df[active_df['Current Office'].str.contains(officer, na=False)]
+        officer_data = active_df[active_df['Current Office'].apply(lambda x: officer in get_positions(x))]
         for index, row in officer_data.iterrows():
             row_cells = officers_table.add_row().cells
             row_cells[0].text = officer
@@ -261,8 +407,8 @@ def create_chapter_minutes(docx_output_dir, active_df, advisor_df):
             row_cells = advisor_table.add_row().cells
             row_cells[0].text = advisor
             row_cells[1].text = f'{row["First Name"]} {row["Last Name"]}'
-            row_cells[2].text = 'P'
-            row_cells[3].text = 'P'
+            row_cells[2].text = 'E' if advisor in ['Chapter Advisor', 'Asst. Chapter Advisor'] else 'P'
+            row_cells[3].text = 'E' if advisor in ['Chapter Advisor', 'Asst. Chapter Advisor'] else 'P'
 
             row_color = 'cccccc' if r_index % 2 == 0 else 'FFFFFF'
 
@@ -298,26 +444,26 @@ def create_bylaws_minutes(docx_output_dir, active_df):
 
     meeting_title = doc.add_paragraph('Meeting Minutes')
     set_font(meeting_title.add_run(), 'Times New Roman', 14)
-    insertBHR(meeting_title)
+    insertHR(meeting_title)
 
     bylaws = doc.add_paragraph('Bylaws Committee Meeting')
     set_font(bylaws.add_run(), 'Times New Roman', 12)
-    insertTHR(bylaws)
+    insertHR(bylaws, 'top')
 
     date = doc.add_paragraph('Date')
     set_font(date.add_run(), 'Times New Roman', 11)
-    insertBHR(date)
+    insertHR(date)
 
     parliamentary_officers = doc.add_paragraph('Parliamentary Officers')
     set_font(parliamentary_officers.add_run(), 'Times New Roman', 14)
-    insertTHR(parliamentary_officers)
+    insertHR(parliamentary_officers, 'top')
 
     chair = doc.add_paragraph('Chair: Sigma')
     set_font(chair.add_run(), 'Times New Roman', 11)
 
     secretary = doc.add_paragraph('Secretary: Sigma')
     set_font(secretary.add_run(), 'Times New Roman', 11)
-    insertBHR(secretary)
+    insertHR(secretary)
 
     call_to_order_paragraph = doc.add_paragraph()
     call_to_order_run = call_to_order_paragraph.add_run('Call to Order ')
@@ -440,26 +586,26 @@ def create_events_minutes(docx_output_dir, active_df):
 
     meeting_title = doc.add_paragraph('Meeting Minutes')
     set_font(meeting_title.add_run(), 'Times New Roman', 14)
-    insertBHR(meeting_title)
+    insertHR(meeting_title)
 
     bylaws = doc.add_paragraph('Bylaws Committee Meeting')
     set_font(bylaws.add_run(), 'Times New Roman', 12)
-    insertTHR(bylaws)
+    insertHR(bylaws, 'top')
 
     date = doc.add_paragraph('Date')
     set_font(date.add_run(), 'Times New Roman', 11)
-    insertBHR(date)
+    insertHR(date)
 
     parliamentary_officers = doc.add_paragraph('Parliamentary Officers')
     set_font(parliamentary_officers.add_run(), 'Times New Roman', 14)
-    insertTHR(parliamentary_officers)
+    insertHR(parliamentary_officers, 'top')
 
     chair = doc.add_paragraph('Chair: Chi')
     set_font(chair.add_run(), 'Times New Roman', 11)
 
     secretary = doc.add_paragraph('Secretary: Sigma')
     set_font(secretary.add_run(), 'Times New Roman', 11)
-    insertBHR(secretary)
+    insertHR(secretary)
 
     call_to_order_paragraph = doc.add_paragraph()
     call_to_order_run = call_to_order_paragraph.add_run('Call to Order ')
@@ -605,19 +751,19 @@ def create_exec_minutes(docx_output_dir, active_df):
 
     meeting_title = doc.add_paragraph('Meeting Minutes')
     set_font(meeting_title.add_run(), 'Times New Roman', 14)
-    insertBHR(meeting_title)
+    insertHR(meeting_title)
 
     bylaws = doc.add_paragraph('Bylaws Committee Meeting')
     set_font(bylaws.add_run(), 'Times New Roman', 12)
-    insertTHR(bylaws)
+    insertHR(bylaws, 'top')
 
     date = doc.add_paragraph('Date')
     set_font(date.add_run(), 'Times New Roman', 11)
-    insertBHR(date)
+    insertHR(date)
 
     parliamentary_officers = doc.add_paragraph('Parliamentary Officers')
     set_font(parliamentary_officers.add_run(), 'Times New Roman', 14)
-    insertTHR(parliamentary_officers)
+    insertHR(parliamentary_officers, 'top')
 
     chair = doc.add_paragraph('Chair: Alpha')
     set_font(chair.add_run(), 'Times New Roman', 11)
@@ -661,19 +807,19 @@ def create_house_minutes(docx_output_dir, active_df):
 
     meeting_title = doc.add_paragraph('Meeting Minutes')
     set_font(meeting_title.add_run(), 'Times New Roman', 14)
-    insertBHR(meeting_title)
+    insertHR(meeting_title)
 
     bylaws = doc.add_paragraph('Bylaws Committee Meeting')
     set_font(bylaws.add_run(), 'Times New Roman', 12)
-    insertTHR(bylaws)
+    insertHR(bylaws, 'top')
 
     date = doc.add_paragraph('Date')
     set_font(date.add_run(), 'Times New Roman', 11)
-    insertBHR(date)
+    insertHR(date)
 
     parliamentary_officers = doc.add_paragraph('Parliamentary Officers')
     set_font(parliamentary_officers.add_run(), 'Times New Roman', 14)
-    insertTHR(parliamentary_officers)
+    insertHR(parliamentary_officers, 'top')
 
     chair = doc.add_paragraph('Chair: Alpha')
     set_font(chair.add_run(), 'Times New Roman', 11)
