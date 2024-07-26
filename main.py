@@ -152,22 +152,23 @@ def add_parliamentary_officers(paragraph, title, role, active_df):
     run = paragraph.add_run(f'{title}: {names_text}\n')
     set_font(run)
 
-def add_header(document, header_text, font_name='Times New Roman', font_size=11, alignment=WD_ALIGN_PARAGRAPH.RIGHT):
+def add_header(document, header_text, different_header, font_name='Times New Roman', font_size=11, alignment=WD_ALIGN_PARAGRAPH.RIGHT):
     section = document.sections[0]
-    section.different_first_page_header_footer = True
+    section.different_first_page_header_footer = different_header
 
-    first_page_header = section.first_page_header
-    for paragraph in first_page_header.paragraphs:
-        p = paragraph._element
-        p.getparent().remove(p)
-    
-    if len(first_page_header.paragraphs) == 0:
-        first_page_header.add_paragraph()
+    if different_header:
+        first_page_header = section.first_page_header
+        for paragraph in first_page_header.paragraphs:
+            p = paragraph._element
+            p.getparent().remove(p)
+        
+        if len(first_page_header.paragraphs) == 0:
+            first_page_header.add_paragraph()
 
-    first_page_header_paragraph = first_page_header.paragraphs[0]
-    first_page_header_run = first_page_header_paragraph.add_run()
-    first_page_header_paragraph.alignment = alignment
-    set_font(first_page_header_run, font_name, font_size)
+        first_page_header_paragraph = first_page_header.paragraphs[0]
+        first_page_header_run = first_page_header_paragraph.add_run()
+        first_page_header_paragraph.alignment = alignment
+        set_font(first_page_header_run, font_name, font_size)
 
     header = section.header
     header_paragraph = header.paragraphs[0]
@@ -179,7 +180,7 @@ def create_chapter_minutes(docx_output_dir, active_df, advisor_df):
     register_element_cls('wp:anchor', CT_Anchor)
     doc = Document()
 
-    add_header(doc, 'Formal Meeting Minutes\nDate')
+    add_header(doc, 'Formal Meeting Minutes\nDate', True)
 
     paragraph = doc.add_paragraph()
     add_float_picture(paragraph, 'data/AEPKS_CREST.png', width=Inches(7), height=Inches(9), pos_x=Pt(-225), pos_y=Pt(80))
