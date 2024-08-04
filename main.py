@@ -566,66 +566,47 @@ def create_events_minutes(docx_output_dir, active_df):
     header_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     set_font(header_run, 'Times New Roman', 11)
 
-    title = doc.add_paragraph('Phi Kappa Sigma')
-    set_font(title.add_run(), 'Times New Roman', 26, True)
+    title = doc.add_paragraph()
+    set_font(title.add_run('Phi Kappa Sigma\n'), 'Times New Roman', 26, True)
+    set_font(title.add_run('Alpha Epsilon\n'), 'Times New Roman', 20, True)
+    set_font(title.add_run('Meeting Minutes'), 'Times New Roman', 14)
+    insertHR(title)
 
-    subtitle = doc.add_paragraph('Alpha Epsilon')
-    set_font(subtitle.add_run(), 'Times New Roman', 20, True)
+    events_p = doc.add_paragraph()
+    set_font(events_p.add_run('Bylaws Committee Meeting\n'), 'Times New Roman', 12)
+    insertHR(events_p, 'top')
+    set_font(events_p.add_run('Date'), 'Times New Roman', 11)
+    insertHR(events_p)
 
-    meeting_title = doc.add_paragraph('Meeting Minutes')
-    set_font(meeting_title.add_run(), 'Times New Roman', 14)
-    insertHR(meeting_title)
+    parliamentary_officers = doc.add_paragraph()
+    set_font(parliamentary_officers.add_run('Parliamentary Officers\n'), 'Times New Roman', 14)
 
-    bylaws = doc.add_paragraph('Bylaws Committee Meeting')
-    set_font(bylaws.add_run(), 'Times New Roman', 12)
-    insertHR(bylaws, 'top')
+    roles = [('Chair', 'Chi'), ('Secretary', 'Sigma')]
 
-    date = doc.add_paragraph('Date')
-    set_font(date.add_run(), 'Times New Roman', 11)
-    insertHR(date)
+    for title, role in roles:
+        add_parliamentary_officers(parliamentary_officers, title, role, active_df)
 
-    parliamentary_officers = doc.add_paragraph('Parliamentary Officers')
-    set_font(parliamentary_officers.add_run(), 'Times New Roman', 14)
-    insertHR(parliamentary_officers, 'top')
-
-    chair = doc.add_paragraph('Chair: Chi')
-    set_font(chair.add_run(), 'Times New Roman', 11)
-
-    secretary = doc.add_paragraph('Secretary: Sigma')
-    set_font(secretary.add_run(), 'Times New Roman', 11)
-    insertHR(secretary)
+    insertHR(parliamentary_officers)
 
     call_to_order_paragraph = doc.add_paragraph()
     call_to_order_run = call_to_order_paragraph.add_run('Call to Order ')
     set_font(call_to_order_run, 'Times New Roman', 11, bold=True)
     call_to_order_paragraph.add_run('{0} Time'.format(emDash))
 
-    text = doc.add_paragraph('Unfinished Business')
-    set_font(text.add_run(), 'Times New Roman', 11, True)
-    
-    text = doc.add_paragraph('Officer Reports')
-    set_font(text.add_run(), 'Times New Roman', 11, True)
+    unfin_bus = doc.add_paragraph()
+    set_font(unfin_bus.add_run('Unfinished Business'), 'Times New Roman', 11, True)
 
-    chi_bullet_point = doc.add_paragraph('Chi', style='List Bullet')
-    set_paragraph_indentation(chi_bullet_point, 36)
+    reports = doc.add_paragraph()
+    set_font(reports.add_run('Officer Reports'), 'Times New Roman', 11, True)
+    officer_rep = ['Chi', 'Pi', 'Upsilon', 'Psi', 'Phi', 'Gamma']
 
-    pi_bullet_point = doc.add_paragraph('Pi', style='List Bullet')
-    set_paragraph_indentation(pi_bullet_point, 36)
+    for op in officer_rep:
+        bullet_point = doc.add_paragraph(style='List Bullet')
+        set_font(bullet_point.add_run(op), font_name='Times New Roman')
+        set_paragraph_indentation(bullet_point, 36)
 
-    upsilon_bullet_point = doc.add_paragraph('Upsilon', style='List Bullet')
-    set_paragraph_indentation(upsilon_bullet_point, 36)
-
-    psi_bullet_point = doc.add_paragraph('Psi', style='List Bullet')
-    set_paragraph_indentation(psi_bullet_point, 36)
-
-    phi_bullet_point = doc.add_paragraph('Phi', style='List Bullet')
-    set_paragraph_indentation(phi_bullet_point, 36)
-
-    gamma_bullet_point = doc.add_paragraph('Gamma', style='List Bullet')
-    set_paragraph_indentation(gamma_bullet_point, 36)
-
-    text = doc.add_paragraph('New Business')
-    set_font(text.add_run(), 'Times New Roman', 11, True)
+    new_bus = doc.add_paragraph()
+    set_font(new_bus.add_run('New Business'), 'Times New Roman', 11, True)
     bullet_point = doc.add_paragraph('', style='List Bullet')
     set_paragraph_indentation(bullet_point, 36)
 
