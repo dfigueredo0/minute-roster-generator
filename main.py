@@ -2,11 +2,11 @@ import pandas as pd
 import os
 import math
 
+from docx import Document
 from docx.oxml import parse_xml, register_element_cls, OxmlElement
 from docx.oxml.ns import nsdecls, qn
 from docx.oxml.shape import CT_Picture
 from docx.oxml.xmlchemy import BaseOxmlElement, OneAndOnlyOne
-from docx import Document
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
@@ -70,7 +70,6 @@ class CT_Anchor(BaseOxmlElement):
             '  </a:graphic>\n'
             '</wp:anchor>' % ( nsdecls('wp', 'a', 'pic', 'r'), int(pos_x), int(pos_y) )
         )
-
 
 def new_pic_anchor(part, image_descriptor, width, height, pos_x, pos_y):
     rId, image = part.get_or_add_image(image_descriptor)
@@ -430,41 +429,29 @@ def create_chapter_minutes(docx_output_dir, active_df, advisor_df):
 def create_bylaws_minutes(docx_output_dir, active_df):
     doc = Document()
 
-    section = doc.sections[0]
-    header = section.header
-    header_paragraph = header.paragraphs[0]
-    header_run = header_paragraph.add_run('Bylaws Committee Meeting\nXX-XX-XX')
-    header_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    set_font(header_run, 'Times New Roman', 11)
+    add_header(doc,'Bylaws Committee Meeting\nXX-XX-XX', False)
 
-    title = doc.add_paragraph('Phi Kappa Sigma')
-    set_font(title.add_run(), 'Times New Roman', 26, True)
+    title = doc.add_paragraph()
+    set_font(title.add_run('Phi Kappa Sigma\n'), 'Times New Roman', 26, True)
+    set_font(title.add_run('Alpha Epsilon\n'), 'Times New Roman', 20, True)
+    set_font(title.add_run('Meeting Minutes'), 'Times New Roman', 14)
+    insertHR(title)
 
-    subtitle = doc.add_paragraph('Alpha Epsilon')
-    set_font(subtitle.add_run(), 'Times New Roman', 20, True)
-
-    meeting_title = doc.add_paragraph('Meeting Minutes')
-    set_font(meeting_title.add_run(), 'Times New Roman', 14)
-    insertHR(meeting_title)
-
-    bylaws = doc.add_paragraph('Bylaws Committee Meeting')
-    set_font(bylaws.add_run(), 'Times New Roman', 12)
+    bylaws = doc.add_paragraph()
+    set_font(bylaws.add_run('Bylaws Committee Meeting\n'), 'Times New Roman', 12)
     insertHR(bylaws, 'top')
+    set_font(bylaws.add_run('Date'), 'Times New Roman', 11)
+    insertHR(bylaws)
 
-    date = doc.add_paragraph('Date')
-    set_font(date.add_run(), 'Times New Roman', 11)
-    insertHR(date)
+    parliamentary_officers = doc.add_paragraph()
+    set_font(parliamentary_officers.add_run('Parliamentary Officers\n'), 'Times New Roman', 14)
 
-    parliamentary_officers = doc.add_paragraph('Parliamentary Officers')
-    set_font(parliamentary_officers.add_run(), 'Times New Roman', 14)
-    insertHR(parliamentary_officers, 'top')
+    roles = [('Chair', 'Sigma'), ('Secretary', 'Sigma')]
 
-    chair = doc.add_paragraph('Chair: Sigma')
-    set_font(chair.add_run(), 'Times New Roman', 11)
+    for title, role in roles:
+        add_parliamentary_officers(parliamentary_officers, title, role, active_df)
 
-    secretary = doc.add_paragraph('Secretary: Sigma')
-    set_font(secretary.add_run(), 'Times New Roman', 11)
-    insertHR(secretary)
+    insertHR(parliamentary_officers)
 
     call_to_order_paragraph = doc.add_paragraph()
     call_to_order_run = call_to_order_paragraph.add_run('Call to Order ')
@@ -858,6 +845,9 @@ def create_jboard_minutes(docx_output_dir, active_df):
 
     doc.save(os.path.join(docx_output_dir, 'Judical Board Meeting Minutes Outline.docx'))
 
+def create_roster(xlsx_output_dir, active_df, advisor_df):
+    active_df.to_excel(os.path.join(xlsx_output_dir, 'Officer Roster and Minutes Rosters.xlsx'), index=False)
+
 def read(excel_file):
     df = pd.read_excel(excel_file, header=1)
     active_df = df[df['Status'] == 'Active'][['Last Name', 'First Name', 'Current Office']]
@@ -871,7 +861,7 @@ def write(active_df, advisor_df):
     xlsx_output_dir = 'Rosters'
     os.makedirs(xlsx_output_dir, exist_ok=True)
 
-    active_df.to_excel(os.path.join(xlsx_output_dir, 'Officer Roster and Minutes Rosters.xlsx'), index=False)
+    create_roster(xlsx_output_dir, active_df, advisor_df)
 
     create_chapter_minutes(docx_output_dir, active_df, advisor_df)
 
