@@ -17,9 +17,9 @@ A desktop tool that generates preformatted Meeting Minutes outlines and Officer 
 
 ## How to Use
 
-### 1. Download Roster Excel File
+### 1. Download Roster Excel File and MinuteGenerator.zip
 
-### 2. Launch Executable
+### 2. Unzip MinuteGenerator and Launch `MinutesGenerator-1.0` Executable
 
 ### 3. Select Input and Output
 
