@@ -31,6 +31,8 @@ def create_bylaws_minutes(docx_output_dir, active_df):
         add_parliamentary_officers(parliamentary_officers, title, role, active_df)
     insertHR(parliamentary_officers)
 
+    set_font(doc.add_paragraph().add_run(f'Call to Order {emDash} Time'), 'Times New Roman', 11, bold=True)
+
     add_bullet_section(doc, 'Unfinished Business', ['None'])
     add_bullet_section(doc, 'New Business', [''])
 
@@ -323,7 +325,7 @@ def create_exec_minutes(docx_output_dir, active_df):
     doc = Document()
 
     paragraph = doc.add_paragraph()
-    add_float_picture(paragraph, 'data/AEPKS_FAST_F.png', width=Inches(1.6), height=Inches(2.75), pos_x=Pt(90), pos_y=Pt(70))
+    add_float_picture(paragraph, 'data/AEPKS_FAST_F.png', width=Inches(2.25), height=Inches(2.75), pos_x=Pt(90), pos_y=Pt(70))
 
     title_paragraph = doc.add_paragraph()
     for text, size, bold in [('Phi Kappa Sigma\n', 26, True), ('Alpha Epsilon\n', 20, True), ('Meeting Minutes', 14, False)]:
