@@ -1,8 +1,8 @@
 import pandas as pd
 import os
 
-from create_minutes import *
-from create_roster import create_roster
+from minutes import *
+from roster import create_roster
 
 def read(excel_file):
     df = pd.read_excel(excel_file, header=1)
@@ -18,7 +18,8 @@ def write(active_df, advisor_df):
     os.makedirs(docx_output_dir, exist_ok=True)
     os.makedirs(xlsx_output_dir, exist_ok=True)
 
-    create_roster(xlsx_output_dir, active_df, advisor_df)
+    with pd.ExcelWriter(os.path.join(xlsx_output_dir, 'Officer Roster and Minutes Rosters.xlsx'), engine='openpyxl') as writer:
+        create_roster(writer, xlsx_output_dir, active_df, advisor_df)
 
     create_bylaws_minutes(docx_output_dir, active_df)
     create_chapter_minutes(docx_output_dir, active_df, advisor_df)

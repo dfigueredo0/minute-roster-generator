@@ -7,6 +7,8 @@ from docx.oxml.xmlchemy import BaseOxmlElement, OneAndOnlyOne
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
+from openpyxl.utils import get_column_letter
+
 # The following code for handling floating images in a Word document was
 # initially reported by user Kill0geR over at the python-docx GitHub page:
 # https://github.com/python-openxml/python-docx/issues/159#issuecomment-1955319955
@@ -220,3 +222,43 @@ def get_officers_from_df(df, officer_roles):
             positions = [p.strip().lower() for p in get_positions(row['Current Office'], '/')]
             if officer.lower() in positions:
                 yield officer, row
+                
+def auto_adjust_column_widths(ws, df, start_row, start_column):
+    for i, col_idx in enumerate(range(start_column + 1, start_column + len(df.columns) + 1)):
+        max_length = 0
+        col_letter = get_column_letter(col_idx)
+        for row in ws.iter_rows(min_row=start_row + 1, max_row=start_row + 2 + len(df), min_col=col_idx, max_col=col_idx):
+            for cell in row:
+                try:
+                    if cell.value:
+                        max_length = max(max_length, len(str(cell.value)))
+                except:
+                    pass
+        ws.column_dimensions[col_letter].width = max_length + 7
+
+def create_df(active_df, roles):
+    rows = []
+    roles_lower = [r.lower() for r in roles]
+
+    for _, row in active_df.iterrows():
+        positions = get_positions(row['Current Office'], '/')
+        for position in positions:
+            position_clean = position.strip()
+            if position_clean.lower() in roles_lower:
+                full_name = f"{row['First Name']} {row['Last Name']}"
+                rows.append({
+                    'Officers': position_clean,
+                    'Full Name': full_name,
+                    'Opening Roll': 'P',
+                    'Closing Roll': 'P'
+                })
+
+    df = pd.DataFrame(rows)
+
+    if not df.empty:
+        df["Rank"] = df["Officers"].apply(
+            lambda role: next((i for i, r in enumerate(roles) if r.lower() == role.lower()), len(roles))
+        )
+        df = df.sort_values("Rank").drop(columns=["Rank"])
+
+    return df
