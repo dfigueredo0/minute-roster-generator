@@ -19,6 +19,9 @@ class CT_Anchor(BaseOxmlElement):
 
     @classmethod
     def new(cls, cx, cy, shape_id, pic, pos_x, pos_y):
+        """
+        Creates a new floating anchor element for positioning an image at a specific location.
+        """
         anchor = parse_xml(cls._anchor_xml(pos_x, pos_y))
         anchor.extent.cx = cx
         anchor.extent.cy = cy
@@ -32,6 +35,9 @@ class CT_Anchor(BaseOxmlElement):
 
     @classmethod
     def new_pic_anchor(cls, shape_id, rId, filename, cx, cy, pos_x, pos_y):
+        """
+        Creates and wraps an image inside an anchor element.
+        """    
         pic_id = 0
         pic = CT_Picture.new(pic_id, filename, rId, cx, cy)
         anchor = cls.new(cx, cy, shape_id, pic, pos_x, pos_y)
@@ -40,6 +46,9 @@ class CT_Anchor(BaseOxmlElement):
 
     @classmethod
     def _anchor_xml(cls, pos_x, pos_y):
+        """
+        Returns the XML structure for a floating anchor with position offsets.
+        """
         return (
             '<wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="0" \n'
             '           behindDoc="1" locked="0" layoutInCell="1" allowOverlap="1" \n'
@@ -64,6 +73,9 @@ class CT_Anchor(BaseOxmlElement):
         )
 
 def new_pic_anchor(part, image_descriptor, width, height, pos_x, pos_y):
+    """
+    Helper that returns a Word-compatible floating anchor for an image.
+    """
     rId, image = part.get_or_add_image(image_descriptor)
     cx, cy = image.scaled_dimensions(width, height)
     shape_id, filename = part.next_id, image.filename
@@ -107,6 +119,10 @@ def set_paragraph_indentation(paragraph, left_indent):
     paragraph.paragraph_format.left_indent = Pt(left_indent)
 
 def insertHR(paragraph, position='bottom'):
+    """
+    Inserts a horizontal line border above or below a paragraph using XML.
+    Kind of broken/finicky, it works in most but not all scenarios
+    """
     p = paragraph._p  # p is the <w:p> XML element
     pPr = p.get_or_add_pPr()
     pBdr = OxmlElement('w:pBdr')
@@ -127,11 +143,18 @@ def insertHR(paragraph, position='bottom'):
     pBdr.append(border)
 
 def get_positions(row, delimiter=','):
+    """
+    Splits a string field of roles (e.g., 'Alpha/Beta') into a list.
+    Based on delimiter for our Roster we tend to use '/'
+    """
     if pd.isna(row):
         return []
     return [pos.strip() for pos in row.split(delimiter)]
 
 def add_parliamentary_officers(paragraph, title, role, active_df):
+    """
+    Adds a formatted list of names who hold specified roles to a paragraph.
+    """
     names = []
     target_roles = [r.strip().lower() for r in role.split(', ')]
     for _, row in active_df.iterrows():
@@ -145,6 +168,9 @@ def add_parliamentary_officers(paragraph, title, role, active_df):
     set_font(run)
 
 def add_header(document, header_text, different_header, font_name='Times New Roman', font_size=11, alignment=WD_ALIGN_PARAGRAPH.RIGHT):
+    """
+    Adds a header to the document, optionally supporting a different first page header.
+    """
     section = document.sections[0]
     section.different_first_page_header_footer = different_header
 
@@ -237,6 +263,10 @@ def auto_adjust_column_widths(ws, df, start_row, start_column):
         ws.column_dimensions[col_letter].width = max_length + 7
 
 def create_df(active_df, roles):
+    """
+    Filters and formats a DataFrame for a list of roles, assigns roll values,
+    and orders results based on original role priority.
+    """
     rows = []
     roles_lower = [r.lower() for r in roles]
 
@@ -256,6 +286,7 @@ def create_df(active_df, roles):
     df = pd.DataFrame(rows)
 
     if not df.empty:
+        # Assign a rank based on position in the roles list for sorting
         df["Rank"] = df["Officers"].apply(
             lambda role: next((i for i, r in enumerate(roles) if r.lower() == role.lower()), len(roles))
         )
